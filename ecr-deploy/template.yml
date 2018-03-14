@@ -1,0 +1,31 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Parameters: 
+  Cluster:
+    Type: String
+    Description: Name of the ECS Cluster
+Resources:
+  ECRDeploy:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      Handler: deploy_handler.lambda_handler
+      Runtime: python3.6
+      CodeUri: .
+      Description: Triggered when a Docker image is pushed to ECR and deploys it automatically to the ECS cluster
+      Environment:
+        Variables:
+          CLUSTER:
+            Ref: Cluster
+      Policies: AmazonEC2ContainerServiceFullAccess
+      Events:
+        ECRPutImage:
+          Type: CloudWatchEvent
+          Properties:
+            Pattern:
+              source: 
+                - aws.ecr
+              detail:
+                eventSource:
+                  - ecr.amazonaws.com
+                eventName:
+                  - PutImage
