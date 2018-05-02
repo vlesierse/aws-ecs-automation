@@ -22,7 +22,7 @@ def lambda_handler(event, context):
         taskDefinitions = [ecs.describe_task_definition(taskDefinition=family)['taskDefinition'] for family in families]
         return [
             taskDefinition for taskDefinition in taskDefinitions
-            if any([c for c in taskDefinition['containerDefinitions'] if c['image'].startswith(image)])
+            if any([c for c in taskDefinition['containerDefinitions'] if c['image'].startswith(image) and not c['image'].endswith(f':{imageTag}')])
         ]
 
     def update_task_definition(taskDefinition, newTaskDefinitions, image, imageTag):
