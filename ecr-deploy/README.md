@@ -29,5 +29,5 @@ aws cloudformation package --template-file template.yml --output-template-file t
 Use the AWS CLI to deploy the AWS SAM package using CloudFormation: 
 
 ```sh
-aws cloudformation deploy --capabilities CAPABILITY_IAM --template-file template-packaged.yml --stack-name <YOUR STACK NAME> --parameter-overrides Cluster=<YOUR CLUSTER>
+aws cloudformation deploy --capabilities CAPABILITY_IAM --template-file template-packaged.yml --stack-name <YOUR STACK NAME> --parameter-overrides Cluster=<YOUR CLUSTER> TagLatest=true
 ```

@@ -4,6 +4,14 @@ Parameters:
   Cluster:
     Type: String
     Description: Name of the ECS Cluster
+  TagLatest:
+    Type: String
+    Default: 'false'
+    Description: Use 'true' to automatically tag the deployed image with latest
+  DeployLatest:
+    Type: String
+    Default: 'false'
+    Description: Use 'true' to ignore images tagged with latest
 Resources:
   ECRDeploy:
     Type: 'AWS::Serverless::Function'
@@ -16,6 +24,10 @@ Resources:
         Variables:
           CLUSTER:
             Ref: Cluster
+          TAG_LATEST:
+            Ref: TagLatest
+          DEPLOY_LATEST:
+            Ref: DeployLatest
       Policies: AmazonEC2ContainerServiceFullAccess
       Events:
         ECRPutImage:

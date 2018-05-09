@@ -1,16 +1,21 @@
 import os
 import boto3
 
-
 def lambda_handler(event, context):
     cluster = os.environ['CLUSTER']
+    tagLatest = os.environ['TAG_LATEST'] == 'true'
+    deployLatest = os.environ['DEPLOY_LATEST'] == 'true'
+    if tagLatest and deployLatest: deployLatest = False
+
     region = event['region']
     ecs = boto3.client('ecs', region_name=region)
+    ecr = boto3.client('ecr', region_name=region)
 
     repositoryName = event['detail']['responseElements']['image']['repositoryName']
     registryId = event['detail']['responseElements']['image']['registryId']
-    imageTag = event['detail']['responseElements']['image']['imageId']['imageTag']
     image = f'{registryId}.dkr.ecr.{region}.amazonaws.com/{repositoryName}'
+    imageTag = event['detail']['responseElements']['image']['imageId']['imageTag']
+    imageManifest = event['detail']['responseElements']['image']['imageManifest']
 
     def get_task_definitions():
         response = ecs.list_task_definition_families(status='ACTIVE')
@@ -22,7 +27,12 @@ def lambda_handler(event, context):
         taskDefinitions = [ecs.describe_task_definition(taskDefinition=family)['taskDefinition'] for family in families]
         return [
             taskDefinition for taskDefinition in taskDefinitions
-            if any([c for c in taskDefinition['containerDefinitions'] if c['image'].startswith(image) and not c['image'].endswith(f':{imageTag}')])
+            if any([
+                c for c in taskDefinition['containerDefinitions']
+                if
+                    (c['image'].startswith(image) and not c['image'].endswith(f':{imageTag}'))
+                    or (deployLatest and c['image'].endswith(f':latest'))
+                ])
         ]
 
     def update_task_definition(taskDefinition, newTaskDefinitions, image, imageTag):
@@ -65,7 +75,11 @@ def lambda_handler(event, context):
     def update_service(service, newTaskDefinitionArn):
         serviceArn = service['serviceArn']
         print(f'Update service {serviceArn} with {newTaskDefinitionArn}')
-        response = ecs.update_service(cluster=cluster, service=serviceArn, taskDefinition=newTaskDefinitionArn)
+        ecs.update_service(cluster=cluster, service=serviceArn, taskDefinition=newTaskDefinitionArn)
+    
+    def tag_latest():
+         print(f'Tag {image}:{imageTag} with latest')
+         ecr.put_image(registryId=registryId, repositoryName=repositoryName, imageManifest=imageManifest, imageTag='latest')
 
     def strip_arn(arn):
         return arn[:arn.rindex(":")]
@@ -84,3 +98,4 @@ def lambda_handler(event, context):
             for service in services
             if strip_arn(service['taskDefinition']) in newTaskDefinitions.keys()
         ]
+        if tagLatest: tag_latest()
