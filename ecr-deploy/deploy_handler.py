@@ -1,5 +1,6 @@
 import os
 import boto3
+from botocore.exceptions import ClientError
 
 def lambda_handler(event, context):
     cluster = os.environ['CLUSTER']
@@ -79,7 +80,13 @@ def lambda_handler(event, context):
     
     def tag_latest():
          print(f'Tag {image}:{imageTag} with latest')
-         ecr.put_image(registryId=registryId, repositoryName=repositoryName, imageManifest=imageManifest, imageTag='latest')
+         try:
+             ecr.put_image(registryId=registryId, repositoryName=repositoryName, imageManifest=imageManifest, imageTag='latest')
+         except ClientError as e:
+            if e.response['Error']['Code'] != 'ImageAlreadyExistsException':
+                raise
+            print(f'Image {image}:{imageTag} is already tagged with latest')
+         
 
     def strip_arn(arn):
         return arn[:arn.rindex(":")]
