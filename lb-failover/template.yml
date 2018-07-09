@@ -1,0 +1,62 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: 'AWS::Serverless-2016-10-31'
+Parameters:
+  LoadBalancer:
+    Type: String
+    Description: ARN suffic of the load balancer
+  TargetGroup:
+    Type: String
+    Description: ARN suffic of the target group to monitor
+  FallbackTargetGroup:
+    Type: String
+    Description: Name of the target group to failover to
+Resources:
+  LoadBalancerFailover:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      Handler: failover_handler.lambda_handler
+      Runtime: python3.6
+      CodeUri: .
+      Description: Triggers a failover when a CloudWatch Alarm on the healthy host count triggers an alarm.
+      Environment:
+        Variables:
+          TG_FALLBACK:
+            Ref: FallbackTargetGroup
+      Policies:
+        - AWSLambdaExecute # Managed Policy
+        - Version: '2012-10-17' # Policy Document
+          Statement:
+            - Effect: Allow
+          Action:
+            - 'elasticloadbalancing:*'
+          Resource: '*'
+    Events:
+      HealthyHostTopic:
+        Type: SNS
+        Properties:
+          Topic: 
+            Ref: HealthyHostTopic
+  HealthHostAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmDescription: Alarm if load balancer target group has no healty hosts
+      Namespace: AWS/ApplicationELB
+      MetricName: HealthyHostCount
+      Dimensions:
+        - Name: TargetGroup
+          Value:
+            Ref: TargetGroup
+        - Name: LoadBalancer
+          Value:
+            Ref: LoadBalancer
+      Statistic: Average
+      Period: '60'
+      EvaluationPeriods: '1'
+      Threshold: '0'
+      ComparisonOperator: LessThanOrEqualToThreshold
+      AlarmActions:
+        - Ref: HealthyHostTopic
+      OkActions:
+        - Ref: HealthyHostTopic
+  HealthyHostTopic:
+    Type: AWS::SNS::Topic
